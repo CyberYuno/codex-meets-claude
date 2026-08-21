@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Validate a debate document or wait until a role owns the next turn."""
+"""Create, validate, or wait on a shared debate document."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import tempfile
 import threading
 import time
-from pathlib import Path
+from datetime import datetime, timezone
+from pathlib import Path, PureWindowsPath
 
 STATE_RE = re.compile(
     r"^<!-- (?:codex-meets-claude|codex-claude-debate)-state: (\{.*\}) -->$",
@@ -50,7 +52,44 @@ def state_marker(state: dict) -> str:
     return f"<!-- codex-meets-claude-state: {payload} -->"
 
 
-def init_document(path: Path, first: str, max_rounds: int) -> dict:
+def default_state_dir(
+    platform=None,
+    environ=None,
+    home=None,
+) -> Path:
+    platform = platform or sys.platform
+    environ = os.environ if environ is None else environ
+    home = home or Path.home()
+    override = environ.get("CODEX_MEETS_CLAUDE_STATE_DIR")
+    if override:
+        override_path = Path(override).expanduser()
+        if not override_path.is_absolute():
+            raise ProtocolError("CODEX_MEETS_CLAUDE_STATE_DIR must be absolute")
+        return override_path
+    if platform == "win32":
+        local_app_data = environ.get("LOCALAPPDATA", "")
+        base = (
+            Path(local_app_data)
+            if PureWindowsPath(local_app_data).is_absolute()
+            else home / "AppData" / "Local"
+        )
+        return base / "CodexMeetsClaude" / "debates"
+    if platform == "darwin":
+        return home / "Library" / "Application Support" / "CodexMeetsClaude" / "debates"
+    candidate = Path(environ.get("XDG_STATE_HOME", ""))
+    base = candidate if candidate.is_absolute() else home / ".local" / "state"
+    return base / "codex-meets-claude" / "debates"
+
+
+def default_debate_path(slug: str) -> Path:
+    safe_slug = re.sub(r"[^a-z0-9]+", "-", slug.lower()).strip("-") or "debate"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return default_state_dir() / f"{timestamp}-{safe_slug}.md"
+
+
+def init_document(
+    path: Path, first: str, max_rounds: int, private_parent: bool = False
+) -> dict:
     if first != "codex":
         raise ProtocolError("Codex must write round 1")
     if max_rounds < 4 or max_rounds % 2:
@@ -59,9 +98,12 @@ def init_document(path: Path, first: str, max_rounds: int) -> dict:
     text, state = read_document(template)
     state["max_rounds"] = max_rounds
     text = STATE_RE.sub(state_marker(state), text)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    if private_parent and os.name != "nt":
+        path.parent.chmod(0o700)
     try:
-        with path.open("x", encoding="utf-8") as output:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             output.write(text)
     except FileExistsError as exc:
         raise ProtocolError(f"refusing to overwrite existing file: {path}") from exc
@@ -197,9 +239,44 @@ def self_test() -> None:
     with tempfile.TemporaryDirectory(
         prefix="debate-protocol-test-", dir=temporary_root
     ) as directory:
+        fake_home = Path(directory) / "home"
+        assert default_state_dir("win32", {}, fake_home) == (
+            fake_home / "AppData" / "Local" / "CodexMeetsClaude" / "debates"
+        )
+        assert default_state_dir(
+            "win32", {"LOCALAPPDATA": "C:/Users/test/AppData/Local"}, fake_home
+        ) == Path("C:/Users/test/AppData/Local/CodexMeetsClaude/debates")
+        assert default_state_dir("darwin", {}, fake_home) == (
+            fake_home
+            / "Library"
+            / "Application Support"
+            / "CodexMeetsClaude"
+            / "debates"
+        )
+        assert default_state_dir("linux", {}, fake_home) == (
+            fake_home / ".local" / "state" / "codex-meets-claude" / "debates"
+        )
+        assert default_state_dir(
+            "linux", {"XDG_STATE_HOME": "/private/state"}, fake_home
+        ) == Path("/private/state/codex-meets-claude/debates")
+        override = Path(directory) / "private-state"
+        assert (
+            default_state_dir(
+                "linux", {"CODEX_MEETS_CLAUDE_STATE_DIR": str(override)}
+            )
+            == override
+        )
+        try:
+            default_state_dir("linux", {"CODEX_MEETS_CLAUDE_STATE_DIR": "relative"})
+        except ProtocolError:
+            pass
+        else:
+            raise AssertionError("a relative private state override was accepted")
         scaffold = Path(directory) / "scaffold.md"
-        initialized = init_document(scaffold, "codex", 12)
+        initialized = init_document(scaffold, "codex", 12, private_parent=True)
         assert initialized["first"] == "codex" and scaffold.exists()
+        if os.name != "nt":
+            assert scaffold.stat().st_mode & 0o777 == 0o600
         try:
             init_document(scaffold, "codex", 12)
         except ProtocolError:
@@ -229,7 +306,10 @@ def self_test() -> None:
         )
         assert validate(path)["round"] == 1
         path.write_text(text, encoding="utf-8")
-        path.write_text(text.replace("completely equal peers", "nominally equal peers"), encoding="utf-8")
+        path.write_text(
+            text.replace("completely equal peers", "nominally equal peers"),
+            encoding="utf-8",
+        )
         try:
             validate(path)
         except ProtocolError:
@@ -260,7 +340,9 @@ Verdict: CONTINUE
 
         def reply() -> None:
             time.sleep(0.05)
-            path.write_text(text.replace(old_footer, round_two + new_footer), encoding="utf-8")
+            path.write_text(
+                text.replace(old_footer, round_two + new_footer), encoding="utf-8"
+            )
 
         writer = threading.Thread(target=reply)
         writer.start()
@@ -343,7 +425,9 @@ Verdict: ACCEPT_CONVERGENCE
         closed_state.update(status="closed", next=None)
         closed_footer = state_marker(closed_state)
         path.write_text(
-            current.replace(footer, "## Final Summary · Codex\n\nConverged.\n\n" + closed_footer),
+            current.replace(
+                footer, "## Final Summary · Codex\n\nConverged.\n\n" + closed_footer
+            ),
             encoding="utf-8",
         )
         assert validate(path)["status"] == "closed"
@@ -359,14 +443,20 @@ Verdict: ACCEPT_CONVERGENCE
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     validate_parser = commands.add_parser("validate")
     validate_parser.add_argument("file", type=Path)
-    init_parser = commands.add_parser("init")
-    init_parser.add_argument("file", type=Path)
+    init_parser = commands.add_parser("init", help="create a blank debate document")
+    init_parser.add_argument(
+        "file",
+        type=Path,
+        nargs="?",
+        help="output path; omit for the platform's private state directory",
+    )
     init_parser.add_argument("--first", choices=["codex"], default="codex")
     init_parser.add_argument("--max-rounds", type=int, default=12)
+    init_parser.add_argument("--slug", default="debate", help="default filename slug")
     wait_parser = commands.add_parser("wait")
     wait_parser.add_argument("file", type=Path)
     wait_parser.add_argument("--role", choices=sorted(ROLES), required=True)
@@ -378,7 +468,10 @@ def main() -> int:
 
     try:
         if args.command == "init":
-            result = init_document(args.file, args.first, args.max_rounds)
+            path = args.file or default_debate_path(args.slug)
+            result = init_document(
+                path, args.first, args.max_rounds, private_parent=args.file is None
+            )
         elif args.command == "validate":
             result = validate(args.file)
         elif args.command == "wait":

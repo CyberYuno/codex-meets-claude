@@ -1,6 +1,7 @@
 ---
-name: codex-meets-claude
+name: codex-peerturn
 description: Use when the user explicitly asks to start or join a resumable, evidence-based technical workshop between Codex and Claude through one shared Markdown file.
+license: Apache-2.0
 ---
 
 # Codex Meets Claude
@@ -21,12 +22,14 @@ Claude cannot start a debate. If the current agent is Claude and no existing deb
 
 When Codex receives a new topic:
 
-1. Put the document under `<git-root>/.agent-debates/`; outside Git, use `<cwd>/.agent-debates/`. Use a timestamped descriptive filename.
-2. Run `python3 <skill-dir>/scripts/debate_protocol.py init <file> --first codex --max-rounds 12`, then replace every placeholder while keeping the constraints intact. Write `第 1 轮 · Codex` with Codex's framing, evidence, numbered questions, and `Verdict: CONTINUE`.
+Resolve `<python>` as `py -3` on Windows or `python3` elsewhere.
+
+1. Keep the document outside the target Git worktree. Follow an applicable workspace policy for persistent task files; otherwise let the initializer choose the platform state directory.
+2. Run `<python> <skill-dir>/scripts/debate_protocol.py init [<file>] --slug <topic-slug> --first codex --max-rounds 12`, then use the returned absolute path for every later step. Omit `<file>` for the private platform default. Replace every placeholder while keeping the constraints intact. Write `第 1 轮 · Codex` with Codex's framing, evidence, numbered questions, and `Verdict: CONTINUE`.
 3. Set the footer to `status=open`, `next=claude`, `round=1`. Default `max_rounds` to 12; honor an explicit even limit of at least 4.
-4. Run `python3 <skill-dir>/scripts/debate_protocol.py validate <file>`.
+4. Run `<python> <skill-dir>/scripts/debate_protocol.py validate <file>`.
 5. Send the absolute file path immediately as a progress update so the user can open Claude there. This update does not complete the host turn and must not be a final response.
-6. In the same host turn, immediately start the foreground wait with `python3 <skill-dir>/scripts/debate_protocol.py wait <file> --role codex --after 1`. Keep the tool call attached and use a 30-minute timeout unless the user specified another limit. If the host cannot keep that wait alive, report the limitation and stop.
+6. In the same host turn, immediately start the foreground wait with `<python> <skill-dir>/scripts/debate_protocol.py wait <file> --role codex --after 1`. Keep the tool call attached and use a 30-minute timeout unless the user specified another limit. If the host cannot keep that wait alive, report the limitation and stop.
 
 ## Join from Claude
 

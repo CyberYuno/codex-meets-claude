@@ -1,6 +1,6 @@
 interface:
   display_name: "Codex Meets Claude"
   short_description: "Run an equal-peer technical workshop"
-  default_prompt: "Use $codex-meets-claude to start a technical workshop with Claude."
+  default_prompt: "Use $codex-peerturn to start a technical workshop with Claude."
 policy:
   allow_implicit_invocation: false

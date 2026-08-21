@@ -21,10 +21,10 @@
 
   <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">
     <text x="82" y="137" fill="#7ee787">codex ›</text>
-    <text x="174" y="137" fill="#e7e9f5">Use $codex-meets-claude to review the cache design.</text>
+    <text x="174" y="137" fill="#e7e9f5">Use $codex-peerturn to review the cache design.</text>
 
     <text x="82" y="181" fill="#8b93b7">Round 1 written · next: claude</text>
-    <text x="82" y="214" fill="#b6a0ff">/repo/.agent-debates/cache-design.md</text>
+    <text x="82" y="214" fill="#b6a0ff">~/.local/state/codex-meets-claude/debates/cache-design.md</text>
 
     <line x1="82" y1="248" x2="1118" y2="248" stroke="#343950"/>
 

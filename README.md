@@ -44,13 +44,26 @@ Codex Meets Claude is a shared-file protocol for an equal-footing, multi-round t
 
 ### Install for both agents
 
-From the repository root:
+Clone the repository, then link the installable skill directory.
+
+macOS / Linux:
 
 ```bash
 git clone https://github.com/CyberYuno/codex-meets-claude.git
 cd codex-meets-claude
-ln -s "$PWD" ~/.agents/skills/codex-meets-claude
-ln -s "$PWD" ~/.claude/skills/codex-meets-claude
+mkdir -p ~/.agents/skills ~/.claude/skills
+ln -s "$PWD/skill/codex-peerturn" ~/.agents/skills/codex-peerturn
+ln -s "$PWD/skill/codex-peerturn" ~/.claude/skills/codex-peerturn
+```
+
+Windows PowerShell:
+
+```powershell
+git clone https://github.com/CyberYuno/codex-meets-claude.git
+Set-Location codex-meets-claude
+New-Item -ItemType Directory -Force "$HOME\.agents\skills", "$HOME\.claude\skills"
+New-Item -ItemType Junction -Path "$HOME\.agents\skills\codex-peerturn" -Target "$PWD\skill\codex-peerturn"
+New-Item -ItemType Junction -Path "$HOME\.claude\skills\codex-peerturn" -Target "$PWD\skill\codex-peerturn"
 ```
 
 Restart both clients after first installation. If either link already exists, inspect it before replacing it.
@@ -60,7 +73,7 @@ Restart both clients after first installation. If either link already exists, in
 In Codex:
 
 ```text
-Use $codex-meets-claude to discuss whether this cache needs invalidation or a shorter TTL.
+Use $codex-peerturn to discuss whether this cache needs invalidation or a shorter TTL.
 ```
 
 Codex creates the shared file, writes Round 1, reports its absolute path, and waits. Give that path to Claude:
@@ -71,17 +84,30 @@ Join the Codex Meets Claude workshop at /absolute/path/to/debate.md
 
 Both agents then alternate automatically while their foreground polling calls remain alive. Codex reports the joint result after convergence, the 12-round cap, or a blocker.
 
-To create a blank protocol document manually:
+By default, workshop files stay outside Git worktrees:
+
+| Platform | Private state directory |
+|---|---|
+| Windows | `%LOCALAPPDATA%\CodexMeetsClaude\debates` |
+| macOS | `~/Library/Application Support/CodexMeetsClaude/debates` |
+| Linux | `$XDG_STATE_HOME/codex-meets-claude/debates`, falling back to `~/.local/state/...` |
+
+Set `CODEX_MEETS_CLAUDE_STATE_DIR` to use another private location. New directories and files use restrictive POSIX permissions; Windows relies on the user profile's ACL.
+
+The commands below use `python3`; on Windows, use `py -3`.
+
+To create a blank protocol document in the platform default:
 
 ```bash
-python3 scripts/debate_protocol.py init debate.md --first codex --max-rounds 12
+python3 skill/codex-peerturn/scripts/debate_protocol.py init --slug cache-design --first codex --max-rounds 12
 ```
 
-Fill the generated topic and Round 1 placeholders before validation:
+An explicit path remains available when workspace policy provides a private task directory. Fill the generated topic and Round 1 placeholders before validation:
 
 ```bash
-python3 scripts/debate_protocol.py validate debate.md
-python3 scripts/debate_protocol.py wait debate.md --role claude --after 1
+python3 skill/codex-peerturn/scripts/debate_protocol.py init /private/task/path/debate.md --first codex --max-rounds 12
+python3 skill/codex-peerturn/scripts/debate_protocol.py validate /private/task/path/debate.md
+python3 skill/codex-peerturn/scripts/debate_protocol.py wait /private/task/path/debate.md --role claude --after 1
 ```
 
 See [protocol.md](protocol.md) for the constraints and verdict state machine.
@@ -100,13 +126,26 @@ Codex Meets Claude 是一个基于共享 Markdown 文件的技术研讨协议。
 
 ### 同时安装到 Codex 和 Claude
 
-在仓库根目录执行：
+克隆仓库后，把实际 Skill 目录同时链接给两个客户端。
+
+macOS / Linux：
 
 ```bash
 git clone https://github.com/CyberYuno/codex-meets-claude.git
 cd codex-meets-claude
-ln -s "$PWD" ~/.agents/skills/codex-meets-claude
-ln -s "$PWD" ~/.claude/skills/codex-meets-claude
+mkdir -p ~/.agents/skills ~/.claude/skills
+ln -s "$PWD/skill/codex-peerturn" ~/.agents/skills/codex-peerturn
+ln -s "$PWD/skill/codex-peerturn" ~/.claude/skills/codex-peerturn
+```
+
+Windows PowerShell：
+
+```powershell
+git clone https://github.com/CyberYuno/codex-meets-claude.git
+Set-Location codex-meets-claude
+New-Item -ItemType Directory -Force "$HOME\.agents\skills", "$HOME\.claude\skills"
+New-Item -ItemType Junction -Path "$HOME\.agents\skills\codex-peerturn" -Target "$PWD\skill\codex-peerturn"
+New-Item -ItemType Junction -Path "$HOME\.claude\skills\codex-peerturn" -Target "$PWD\skill\codex-peerturn"
 ```
 
 首次安装后重启两个客户端。若链接已存在，请先检查，不要直接覆盖。
@@ -116,7 +155,7 @@ ln -s "$PWD" ~/.claude/skills/codex-meets-claude
 先在 Codex 中说：
 
 ```text
-使用 $codex-meets-claude 研讨这个缓存应该做主动失效，还是缩短 TTL。
+使用 $codex-peerturn 研讨这个缓存应该做主动失效，还是缩短 TTL。
 ```
 
 Codex 会创建共享文件、写下第 1 轮、立即告诉你绝对路径，并开始等待。然后在 Claude 中说：
@@ -127,13 +166,25 @@ Codex 会创建共享文件、写下第 1 轮、立即告诉你绝对路径，�
 
 只要双方的前台轮询仍在运行，它们就会依次读取、查证和回复。双方收敛、达到默认 12 轮上限或遇到真实阻塞后，由 Codex 向用户完整汇报。
 
-手工初始化空白研讨文件：
+默认研讨文件位于 Git 工作树之外：
+
+| 平台 | 私有状态目录 |
+|---|---|
+| Windows | `%LOCALAPPDATA%\CodexMeetsClaude\debates` |
+| macOS | `~/Library/Application Support/CodexMeetsClaude/debates` |
+| Linux | `$XDG_STATE_HOME/codex-meets-claude/debates`，未设置时使用 `~/.local/state/...` |
+
+可通过 `CODEX_MEETS_CLAUDE_STATE_DIR` 指定其他私有位置。POSIX 系统上的新目录和文件使用受限权限；Windows 沿用用户配置目录的 ACL。
+
+下列命令使用 `python3`；Windows 请使用 `py -3`。
+
+在平台默认位置初始化空白研讨文件：
 
 ```bash
-python3 scripts/debate_protocol.py init debate.md --first codex --max-rounds 12
+python3 skill/codex-peerturn/scripts/debate_protocol.py init --slug cache-design --first codex --max-rounds 12
 ```
 
-填完 Topic 和第 1 轮占位内容后，再执行 `validate`。完整约束和状态含义见 [protocol.md](protocol.md)。
+若工作区规则提供了私有任务目录，也可继续传入明确路径。填完 Topic 和第 1 轮占位内容后，再执行 `validate`。完整约束和状态含义见 [protocol.md](protocol.md)。
 
 ## License
 

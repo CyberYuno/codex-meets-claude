@@ -8,7 +8,7 @@
 4. A response has no speed requirement. Before writing, read the complete latest round and inspect the cited code plus relevant callers, tests, logs, or authoritative documentation. Round 2 onward records what was checked and found under `### Verification before reply`; unverified claims stay explicit. Deliberation is evidence work, not an artificial delay.
 5. Run at most one live Codex session and one live Claude session for this file. A duplicate session of the same role must stop; the footer is a turn token, not a multi-writer lock.
 6. Discussion is append-only. Preserve earlier rounds; correct them by citing the earlier round in a new round.
-7. Each round addresses the other peer's numbered claims, distinguishes facts from inference, cites available evidence, and ends with exactly one verdict.
+7. Each round addresses the other peer's numbered claims, distinguishes facts from inference, cites available evidence, and ends with exactly one verdict. Record only necessary evidence; redact credentials, personal data, and confidential material.
 8. Valid verdicts are `CONTINUE`, `PROPOSE_CONVERGENCE`, `ACCEPT_CONVERGENCE`, `CAP_REACHED`, and `BLOCKED`. Convergence requires one proposal and the other peer's acceptance. Courtesy, role, model identity, and a desire to finish are never evidence.
 9. Convergence means both peers agree on the answer, assumptions, material risks, and how the conclusion could be checked. Agreed unresolved uncertainty may remain explicit.
 10. At the even round cap, Claude hands control to Codex with `status=capped`. A need for user judgment or unavailable evidence hands control to Codex with `status=blocked`.
@@ -37,4 +37,4 @@
 
 Verdict: CONTINUE
 
-<!-- codex-meets-claude-state: {"version":2,"status":"open","next":"claude","round":1,"max_rounds":12,"proposed_by":null,"constraints_sha256":"5201f6eeed6eac8d703d3b27b8b389e358c72913a58b41d2f59331c158288136"} -->
+<!-- codex-meets-claude-state: {"version":2,"status":"open","next":"claude","round":1,"max_rounds":12,"proposed_by":null,"constraints_sha256":"ddb3d694d5a242d27040577500e52d285f78a891b79d66644b892b05ff530ffa"} -->
