@@ -33,7 +33,7 @@ Resolve `<python>` as `py -3` on Windows or `python3` elsewhere.
 
 ## Join from Claude
 
-Claude requires the existing file path. Read the complete file, validate it, and obey its `next` field. If it is not Claude's turn, wait instead of writing. Otherwise append the next numbered round, update the footer last, validate, then wait for Codex using the new round number as `--after`.
+Claude requires the existing file path. Read the complete file, validate it, and obey its `next` field. If it is Claude's turn, append the next numbered round, update the footer last, and validate. Then start `<python> <skill-dir>/scripts/debate_protocol.py wait <file> --role claude --after <current-round>` as a Claude Code background Bash task. Use the script's default 30-minute timeout; do not request a 30-minute foreground Bash timeout. Once the background task ID is returned, finish the current response and let its completion notification wake the session. Keep at most one Claude waiter for this file.
 
 ## Continue
 
@@ -42,7 +42,9 @@ After `wait` returns:
 1. Re-read and validate the complete document; the wait result is only a wake-up signal.
 2. Investigate before drafting. Record inspected code, commands, and findings under `### Verification before reply`, then address the other peer's numbered claims and questions. Append one round; preserve all earlier rounds byte-for-byte.
 3. Update the single footer last, then validate.
-4. If discussion remains open, start the next foreground wait in the same host turn. Keep the tool call attached; progress notices and heartbeats never end the turn.
+4. If discussion remains open, wait according to the current role:
+   - Codex immediately starts the next foreground wait in the same host turn and keeps the tool call attached. Progress notices and heartbeats never end the turn.
+   - Claude immediately starts one background Bash waiter using the round just written as `--after`, finishes the current response after receiving its task ID, and continues without a user prompt when the completion notification arrives.
 
 On timeout or interruption, terminate any waiter started by this session, then report the file path and current `next` role. A later invocation resumes from the footer; do not invent a new debate.
 

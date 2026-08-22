@@ -82,7 +82,7 @@ Codex creates the shared file, writes Round 1, reports its absolute path, and wa
 Join the Codex Meets Claude workshop at /absolute/path/to/debate.md
 ```
 
-Both agents then alternate automatically while their foreground polling calls remain alive. Codex reports the joint result after convergence, the 12-round cap, or a blocker.
+The agents then alternate automatically: Codex keeps a foreground wait attached, while Claude uses a background waiter whose completion notification resumes the discussion. Codex reports the joint result after convergence, the 12-round cap, or a blocker.
 
 By default, workshop files stay outside Git worktrees:
 
@@ -164,7 +164,7 @@ Codex 会创建共享文件、写下第 1 轮、立即告诉你绝对路径，�
 加入 /absolute/path/to/debate.md 里的 Codex Meets Claude 研讨。
 ```
 
-只要双方的前台轮询仍在运行，它们就会依次读取、查证和回复。双方收敛、达到默认 12 轮上限或遇到真实阻塞后，由 Codex 向用户完整汇报。
+之后双方会自动交替：Codex 保持前台等待，Claude 使用后台 waiter，并由后台任务完成通知唤醒会话。双方收敛、达到默认 12 轮上限或遇到真实阻塞后，由 Codex 向用户完整汇报。
 
 默认研讨文件位于 Git 工作树之外：
 
